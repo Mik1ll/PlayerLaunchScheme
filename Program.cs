@@ -57,6 +57,7 @@ switch (args[0])
         var uri = new Uri(args[0]);
         if (uri.Scheme != "shizou" || uri.Query.Length == 0)
             return;
-        Process.Start("mpv", $"--no-terminal --no-ytdl \"--http-header-fields=Cookie: {uri.Query[1..]}\" {uri.AbsolutePath}");
+        var innerUri = uri.GetComponents(UriComponents.AbsoluteUri & ~UriComponents.Scheme, UriFormat.UriEscaped);
+        Process.Start("mpv", $"--no-terminal --no-ytdl {innerUri}");
         break;
 }
