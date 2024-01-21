@@ -123,7 +123,7 @@ void HandleUninstall()
 {
     if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     {
-        Registry.CurrentUser.DeleteSubKeyTree(@"SOFTWARE\Classes\shizou");
+        Registry.CurrentUser.DeleteSubKeyTree(@"SOFTWARE\Classes\shizou", false);
     }
     else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
     {
