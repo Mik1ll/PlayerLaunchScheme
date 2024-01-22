@@ -94,18 +94,12 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
     }
     else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
     {
-        extPlayerCommand = extPlayerCommand.Replace(" ", @"\s");
-        extraPlayerArgs = extraPlayerArgs?
-            .Replace("\\", "\\\\")
-            .Replace("\"", "\\\"")
-            .Replace("`", "\\`")
-            .Replace("$", "\\$");
         var desktopContent =
             "[Desktop Entry]\n" +
             "Type=Application\n" +
             "Name=Shizou External Player\n" +
-            $"TryExec=\"{location}\"\n" +
-            $"Exec=\"{location}\" run {extPlayerCommand} \"--extra-args {extraPlayerArgs}\" %u\n" +
+            $"TryExec={location.Replace(" ", "\\s")}\n" +
+            $"Exec=\"{location}\" run \"{extPlayerCommand}\" --extra-args \"{extraPlayerArgs}\" %u\n" +
             "Terminal=false\n" +
             "StartupNotify=false\n" +
             "MimeType=x-scheme-handler/shizou;\n";
