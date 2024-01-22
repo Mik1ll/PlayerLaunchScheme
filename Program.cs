@@ -9,7 +9,7 @@ var rootCommand = new RootCommand
 };
 var installCommand = new Command("install", "Install the scheme handler");
 var extPlayerArg = new Argument<string>("player-command", "Name of the external player if it is in PATH or the path to the player");
-var extPlayerExtraArgsOpt = new Option<string>("--extra-args", "Extra arguments to send to the player");
+var extPlayerExtraArgsOpt = new Option<string?>("--extra-args", "Extra arguments to send to the player");
 installCommand.AddArgument(extPlayerArg);
 installCommand.AddOption(extPlayerExtraArgsOpt);
 installCommand.SetHandler(HandleInstall, extPlayerArg, extPlayerExtraArgsOpt);
@@ -27,7 +27,7 @@ rootCommand.AddCommand(runCommand);
 
 return rootCommand.Invoke(args);
 
-void HandleInstall(string extPlayerCommand, string extraPlayerArgs)
+void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
 {
     var supportedPlayers = new[] { "mpv", "vlc" };
     if (string.IsNullOrWhiteSpace(extPlayerCommand))
@@ -81,7 +81,7 @@ void HandleInstall(string extPlayerCommand, string extraPlayerArgs)
     if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     {
         extPlayerCommand = extPlayerCommand.Replace("%", "%%");
-        extraPlayerArgs = extraPlayerArgs.Replace("\"", "\\\"")
+        extraPlayerArgs = extraPlayerArgs?.Replace("\"", "\\\"")
             .Replace("%", "%%");
         using var key = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\Classes\shizou");
         key.SetValue("", "URL:Shizou Protocol");
@@ -95,7 +95,7 @@ void HandleInstall(string extPlayerCommand, string extraPlayerArgs)
     else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
     {
         extPlayerCommand = extPlayerCommand.Replace(" ", @"\s");
-        extraPlayerArgs = extraPlayerArgs
+        extraPlayerArgs = extraPlayerArgs?
             .Replace("\\", "\\\\")
             .Replace("\"", "\\\"")
             .Replace("`", "\\`")
@@ -135,7 +135,7 @@ void HandleUninstall()
     }
 }
 
-void HandleRun(string extPlayerCommand, string extraPlayerArgs, string playUrl)
+void HandleRun(string extPlayerCommand, string? extraPlayerArgs, string playUrl)
 {
     var uri = new Uri(playUrl);
     var externalPlayerLocation = extPlayerCommand;
