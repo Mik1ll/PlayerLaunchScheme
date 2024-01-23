@@ -80,9 +80,7 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
     var location = Process.GetCurrentProcess().MainModule?.FileName ?? throw new ArgumentException("No Main Module");
     if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     {
-        extPlayerCommand = extPlayerCommand.Replace("%", "%%");
-        extraPlayerArgs = extraPlayerArgs?.Replace("\"", "\\\"")
-            .Replace("%", "%%");
+        extraPlayerArgs = extraPlayerArgs?.Replace("\"", "\"\"");
         using var key = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\Classes\shizou");
         key.SetValue("", "URL:Shizou Protocol");
         key.SetValue("URL Protocol", "");
