@@ -94,12 +94,28 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
     }
     else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
     {
+        void ValidateChars(string str)
+        {
+            var invalidChars = new HashSet<char> { '`', '$', '\\', ' ', '\t', '\n', '\"', '\'', '<', '>', '~', '|', '&', ';', '*', '?', '#', '(', ')' };
+            string StrRepr(char s) => s switch { '\t' => "<tab>", ' ' => "<space>", '\n' => "<newline>", _ => s.ToString() };
+            if (str.Intersect(invalidChars).FirstOrDefault() is var invalidChar and not '\0')
+                throw new ArgumentException($"Location \"{str}\" contains an invalid desktop entry character: {StrRepr(invalidChar)}");
+        }
+
+        ValidateChars(location);
+        ValidateChars(extPlayerCommand);
+        extraPlayerArgs = extraPlayerArgs?
+            .Replace("\\", "\\\\")
+            .Replace("$", "\\$")
+            .Replace("`", "\\`")
+            .Replace("\\", "\\\\");
+
         var desktopContent =
             "[Desktop Entry]\n" +
             "Type=Application\n" +
             "Name=Shizou External Player\n" +
-            $"TryExec={location.Replace(" ", "\\s")}\n" +
-            $"Exec=\"{location}\" run \"{extPlayerCommand}\" --extra-args \"{extraPlayerArgs}\" %u\n" +
+            $"TryExec={location}\n" +
+            $"Exec={location} run {extPlayerCommand} --extra-args \"{extraPlayerArgs}\"\n" +
             "Terminal=false\n" +
             "StartupNotify=false\n" +
             "MimeType=x-scheme-handler/shizou;\n";
@@ -108,7 +124,7 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
         var desktopPath = Path.Combine(desktopDir, desktopName);
         Directory.CreateDirectory(desktopDir);
         File.WriteAllText(desktopPath, desktopContent);
-        Process.Start("desktop-file-install", $"-m 755 --dir={desktopDir.Replace(" ", @"\ ")} --rebuild-mime-info-cache {desktopPath.Replace(" ", @"\ ")}")
+        Process.Start("desktop-file-install", $"\"--dir={desktopDir}\" --rebuild-mime-info-cache \"{desktopPath}\"")
             .WaitForExit();
     }
 }
@@ -144,7 +160,7 @@ void HandleRun(string extPlayerCommand, string? extraPlayerArgs, string playUrl)
     switch (playerName)
     {
         case "mpv":
-            Process.Start(externalPlayerLocation, $"--no-terminal --no-ytdl {extraPlayerArgs} {innerUri}");
+            Process.Start(externalPlayerLocation, $"--no-terminal --no-ytdl {extraPlayerArgs} -- {innerUri}");
             return;
         case "vlc":
             Process.Start(externalPlayerLocation, $"{extraPlayerArgs} {innerUri}");
