@@ -118,10 +118,8 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
             "Terminal=false\n" +
             "StartupNotify=false\n" +
             "MimeType=x-scheme-handler/shizou;\n";
-        var desktopDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local/share/applications");
-        var desktopName = "shizou.desktop";
-        var desktopPath = Path.Combine(desktopDir, desktopName);
-        Directory.CreateDirectory(desktopDir);
+        var desktopPath = GetDesktopEntryPath();
+        var desktopDir = Path.GetDirectoryName(desktopPath);
         File.WriteAllText(desktopPath, desktopContent);
         Process.Start("desktop-file-install", $"\"--dir={desktopDir}\" --rebuild-mime-info-cache \"{desktopPath}\"")
             .WaitForExit();
@@ -136,11 +134,10 @@ void HandleUninstall()
     }
     else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
     {
-        var desktopDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local/share/applications");
-        var desktopName = "shizou.desktop";
-        var desktopPath = Path.Combine(desktopDir, desktopName);
+        var desktopPath = GetDesktopEntryPath();
+        var desktopDir = Path.GetDirectoryName(desktopPath);
         File.Delete(desktopPath);
-        Process.Start("update-desktop-database", desktopDir.Replace(" ", @"\ "));
+        Process.Start("update-desktop-database", new[] { desktopDir! }).WaitForExit(2000);
     }
 }
 
@@ -174,4 +171,13 @@ string UnquoteString(string str)
     if (str.Length >= 2 && str.StartsWith('"') && str.EndsWith('"'))
         return str[1..^1];
     return str;
+}
+
+string GetDesktopEntryPath()
+{
+    var desktopDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local/share/applications");
+    Directory.CreateDirectory(desktopDir);
+    var desktopName = "shizou.desktop";
+    var desktopPath = Path.Combine(desktopDir, desktopName);
+    return desktopPath;
 }
