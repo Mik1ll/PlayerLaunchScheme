@@ -80,7 +80,8 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
     var location = Process.GetCurrentProcess().MainModule?.FileName ?? throw new ArgumentException("No Main Module");
     if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     {
-        extraPlayerArgs = extraPlayerArgs?.Replace("\"", "\"\"");
+        if (extraPlayerArgs is not null)
+            extraPlayerArgs = UnquoteString(extraPlayerArgs).Replace("\"", "\"\"");
         using var key = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\Classes\shizou");
         key.SetValue("", "URL:Shizou Protocol");
         key.SetValue("URL Protocol", "");
@@ -97,11 +98,11 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
             var invalidChars = new HashSet<char> { '`', '$', '\\', ' ', '\t', '\n', '\"', '\'', '<', '>', '~', '|', '&', ';', '*', '?', '#', '(', ')' };
             string StrRepr(char s) => s switch { '\t' => "<tab>", ' ' => "<space>", '\n' => "<newline>", _ => s.ToString() };
             if (str.Intersect(invalidChars).FirstOrDefault() is var invalidChar and not '\0')
-                throw new ArgumentException($"Location \"{str}\" contains an invalid desktop entry character: {StrRepr(invalidChar)}");
+                throw new ArgumentException($"String \"{str}\" contains an invalid desktop entry character: {StrRepr(invalidChar)}");
         }
 
         ValidateChars(location);
-        ValidateChars(extPlayerCommand);
+        extPlayerCommand = UnquoteString(extPlayerCommand);
         extraPlayerArgs = extraPlayerArgs?
             .Replace("\\", "\\\\")
             .Replace("$", "\\$")
@@ -166,4 +167,11 @@ void HandleRun(string extPlayerCommand, string? extraPlayerArgs, string playUrl)
         default:
             return;
     }
+}
+
+string UnquoteString(string str)
+{
+    if (str.Length >= 2 && str.StartsWith('"') && str.EndsWith('"'))
+        return str[1..^1];
+    return str;
 }
