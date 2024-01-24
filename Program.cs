@@ -114,7 +114,7 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
             "Type=Application\n" +
             "Name=Shizou External Player\n" +
             $"TryExec={location}\n" +
-            $"Exec={location} run {extPlayerCommand} --extra-args \"{extraPlayerArgs}\"\n" +
+            $"Exec={location} run {extPlayerCommand} --extra-args \"{extraPlayerArgs}\" %u\n" +
             "Terminal=false\n" +
             "StartupNotify=false\n" +
             "MimeType=x-scheme-handler/shizou;\n";
