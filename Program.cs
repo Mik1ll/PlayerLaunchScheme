@@ -17,18 +17,12 @@ rootCommand.AddCommand(installCommand);
 var uninstallCommand = new Command("uninstall", "Uninstall the scheme handler");
 uninstallCommand.SetHandler(HandleUninstall);
 rootCommand.AddCommand(uninstallCommand);
-var runCommand = new Command("run", "Run the scheme handler");
-var playUriArg = new Argument<string>("uri", "Target URI to send to player");
-runCommand.AddArgument(extPlayerArg);
-runCommand.AddOption(extPlayerExtraArgsOpt);
-runCommand.AddArgument(playUriArg);
-runCommand.SetHandler(HandleRun, extPlayerArg, extPlayerExtraArgsOpt, playUriArg);
-rootCommand.AddCommand(runCommand);
 
 return rootCommand.Invoke(args);
 
 void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
 {
+    extPlayerCommand = UnquoteString(extPlayerCommand);
     var supportedPlayers = new[] { "mpv", "vlc" };
     if (string.IsNullOrWhiteSpace(extPlayerCommand))
     {
@@ -44,7 +38,7 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
     }
     else if (extPlayerCommand.IndexOfAny(Path.GetInvalidFileNameChars()) < 0)
     {
-        var path = Environment.GetEnvironmentVariable("PATH")?.Split(Path.PathSeparator) ?? Array.Empty<string>();
+        var path = Environment.GetEnvironmentVariable("PATH")?.Split(Path.PathSeparator) ?? [];
         var hasExt = Path.HasExtension(extPlayerCommand) || !RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         var ext = hasExt ? string.Empty : ".exe";
         foreach (var dir in path)
@@ -77,19 +71,36 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
         return;
     }
 
-    var location = Process.GetCurrentProcess().MainModule?.FileName ?? throw new ArgumentException("No Main Module");
+    var executableLocation = Environment.ProcessPath ?? throw new ArgumentException("No process path?");
     if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     {
+        var vbScriptLocation =
+            Path.Combine(Path.GetDirectoryName(executableLocation) ?? throw new InvalidOperationException("Parent directory returned null for executable"),
+                "start.vbs");
         if (extraPlayerArgs is not null)
             extraPlayerArgs = UnquoteString(extraPlayerArgs).Replace("\"", "\"\"");
         using var key = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\Classes\shizou");
         key.SetValue("", "URL:Shizou Protocol");
         key.SetValue("URL Protocol", "");
         using var icon = key.CreateSubKey("DefaultIcon");
-        icon.SetValue("", $"\"{location}\",1");
+        icon.SetValue("", $"\"{extPlayerCommand}\",1");
         using var command = key.CreateSubKey(@"shell\open\command");
-        location = location.Replace("%", "%%");
-        command.SetValue("", $"\"{location}\" run \"{extPlayerCommand}\" \"%1\" --extra-args \"{extraPlayerArgs}\"");
+        command.SetValue("", $"wscript.exe \"{vbScriptLocation}\" \"%1\"");
+        var vbScriptContent =
+            "If InStr(1, WScript.Arguments(0), \"shizou:\") <> 1 Then\n" +
+            "   MsgBox \"Error: protocol needs to be shizou:, started with \" & WScript.Arguments(0)\n" +
+            "   WScript.Quit 1\n" +
+            "End If\n" +
+            "Dim url\n" +
+            "url = chr(34) & Mid(WScript.Arguments(0), 8) & chr(34)\n";
+        vbScriptContent += playerName switch
+        {
+            "mpv" =>
+                $"CreateObject(\"Wscript.Shell\").Run \"\"\"{extPlayerCommand}\"\" --no-terminal --no-ytdl {extraPlayerArgs} -- \" & url, 0, False",
+            "vlc" => $"CreateObject(\"Wscript.Shell\").Run \"\"\"{extPlayerCommand}\"\" {extraPlayerArgs} \" & url, 0, False",
+            _ => throw new ArgumentOutOfRangeException()
+        };
+        File.WriteAllText(vbScriptLocation, vbScriptContent);
     }
     else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
     {
@@ -101,8 +112,7 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
                 throw new ArgumentException($"String \"{str}\" contains an invalid desktop entry character: {StrRepr(invalidChar)}");
         }
 
-        ValidateChars(location);
-        extPlayerCommand = UnquoteString(extPlayerCommand);
+        ValidateChars(extPlayerCommand);
         extraPlayerArgs = extraPlayerArgs?
             .Replace("\\", "\\\\")
             .Replace("$", "\\$")
@@ -113,8 +123,13 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
             "[Desktop Entry]\n" +
             "Type=Application\n" +
             "Name=Shizou External Player\n" +
-            $"TryExec={location}\n" +
-            $"Exec={location} run {extPlayerCommand} --extra-args \"{extraPlayerArgs}\" %u\n" +
+            $"TryExec={extPlayerCommand}\n" +
+            playerName switch
+            {
+                "mpv" => $"Exec={extPlayerCommand} --no-terminal --no-ytdl {extraPlayerArgs} -- %u\n",
+                "vlc" => $"Exec={extPlayerCommand} {extraPlayerArgs} %u\n",
+                _ => throw new ArgumentOutOfRangeException()
+            } +
             "Terminal=false\n" +
             "StartupNotify=false\n" +
             "MimeType=x-scheme-handler/shizou;\n";
@@ -138,31 +153,6 @@ void HandleUninstall()
         var desktopDir = Path.GetDirectoryName(desktopPath);
         File.Delete(desktopPath);
         Process.Start("update-desktop-database", new[] { desktopDir! }).WaitForExit(2000);
-    }
-}
-
-void HandleRun(string extPlayerCommand, string? extraPlayerArgs, string playUrl)
-{
-    var uri = new Uri(playUrl);
-    var externalPlayerLocation = extPlayerCommand;
-    if (uri.Scheme != "shizou")
-    {
-        Console.WriteLine("Bad URI scheme");
-        return;
-    }
-
-    var innerUri = uri.GetComponents(UriComponents.AbsoluteUri & ~UriComponents.Scheme, UriFormat.UriEscaped);
-    var playerName = Path.GetFileNameWithoutExtension(externalPlayerLocation).ToLowerInvariant();
-    switch (playerName)
-    {
-        case "mpv":
-            Process.Start(externalPlayerLocation, $"--no-terminal --no-ytdl {extraPlayerArgs} -- {innerUri}");
-            return;
-        case "vlc":
-            Process.Start(externalPlayerLocation, $"{extraPlayerArgs} {innerUri}");
-            return;
-        default:
-            return;
     }
 }
 
