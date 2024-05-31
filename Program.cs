@@ -88,8 +88,22 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
             "   MsgBox \"Error: protocol needs to be shizou:, started with \" & WScript.Arguments(0)\n" +
             "   WScript.Quit 1\n" +
             "End If\n" +
+            "Function DecodePercentEncodedString(encodedString)\n" +
+            "    Dim i, hexValue, decodedString\n" +
+            "    decodedString = \"\"\n" +
+            "    For i = 1 To Len(encodedString)\n" +
+            "        If Mid(encodedString, i, 1) = \"%\" Then\n" +
+            "            hexValue = Mid(encodedString, i + 1, 2)\n" +
+            "            decodedString = decodedString & ChrW(\"&H\" & hexValue)\n" +
+            "            i = i + 2\n" +
+            "        Else\n" +
+            "            decodedString = decodedString & Mid(encodedString, i, 1)\n" +
+            "        End If\n" +
+            "    Next\n" +
+            "    DecodePercentEncodedString = decodedString\n" +
+            "End Function\n" +
             "Dim url\n" +
-            "url = chr(34) & Mid(WScript.Arguments(0), 8) & chr(34)\n";
+            "url = chr(34) & DecodePercentEncodedString(Mid(WScript.Arguments(0), 8)) & chr(34)\n";
         vbScriptContent += playerName switch
         {
             "mpv" =>
@@ -164,14 +178,14 @@ void HandleUninstall()
     }
 }
 
-string UnquoteString(string str)
+static string UnquoteString(string str)
 {
     if (str.Length >= 2 && str.StartsWith('"') && str.EndsWith('"'))
         return str[1..^1];
     return str;
 }
 
-string GetDesktopEntryPath()
+static string GetDesktopEntryPath()
 {
     var desktopDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local/share/applications");
     Directory.CreateDirectory(desktopDir);
@@ -179,7 +193,7 @@ string GetDesktopEntryPath()
     return Path.Combine(desktopDir, desktopName);
 }
 
-string GetShellScriptPath()
+static string GetShellScriptPath()
 {
     var shellScriptDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local/bin");
     Directory.CreateDirectory(shellScriptDir);
@@ -187,9 +201,9 @@ string GetShellScriptPath()
     return Path.Combine(shellScriptDir, scriptName);
 }
 
-string GetVbScriptLocation()
+static string GetVbScriptLocation()
 {
-    var vbScriptDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Shizou");
+    var vbScriptDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Shizou");
     Directory.CreateDirectory(vbScriptDir);
     var vbScriptName = "shizou-ext-player-start.vbs";
     return Path.Combine(vbScriptDir, vbScriptName);
