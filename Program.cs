@@ -71,12 +71,9 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
         return;
     }
 
-    var executableLocation = Environment.ProcessPath ?? throw new ArgumentException("No process path?");
     if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     {
-        var vbScriptLocation =
-            Path.Combine(Path.GetDirectoryName(executableLocation) ?? throw new InvalidOperationException("Parent directory returned null for executable"),
-                "start.vbs");
+        var vbScriptLocation = GetVbScriptLocation();
         if (extraPlayerArgs is not null)
             extraPlayerArgs = UnquoteString(extraPlayerArgs).Replace("\"", "\"\"");
         using var key = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\Classes\shizou");
@@ -119,25 +116,34 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
             .Replace("`", "\\`")
             .Replace("\\", "\\\\");
 
+        var scriptContent = "#!/bin/bash\n" +
+                            "function urldecode() { : \"${*//+/ }\"; echo -e \"${_//%/\\\\x}\"; }\n" +
+                            "url=\"$(urldecode \"${1:7}\")\"\n" +
+                            playerName switch
+                            {
+                                "mpv" => $"{extPlayerCommand} --no-terminal --no-ytdl {extraPlayerArgs} -- \"${{url}}\"\n",
+                                "vlc" => $"{extPlayerCommand} {extraPlayerArgs} \"${{url}}\"\n",
+                                _ => throw new ArgumentOutOfRangeException()
+                            };
+        var scriptPath = GetShellScriptPath();
+        File.WriteAllText(scriptPath, scriptContent);
+        File.SetUnixFileMode(scriptPath, UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute | File.GetUnixFileMode(scriptPath));
+
+
         var desktopContent =
             "[Desktop Entry]\n" +
             "Type=Application\n" +
             "Name=Shizou External Player\n" +
-            $"TryExec={extPlayerCommand}\n" +
-            playerName switch
-            {
-                "mpv" => $"Exec={extPlayerCommand} --no-terminal --no-ytdl {extraPlayerArgs} -- %u\n",
-                "vlc" => $"Exec={extPlayerCommand} {extraPlayerArgs} %u\n",
-                _ => throw new ArgumentOutOfRangeException()
-            } +
+            $"TryExec={scriptPath.Replace(" ", "\\ ")}\n" +
+            $"Exec={scriptPath.Replace(" ", "\\ ")} %u\n" +
             "Terminal=false\n" +
             "StartupNotify=false\n" +
             "MimeType=x-scheme-handler/shizou;\n";
         var desktopPath = GetDesktopEntryPath();
         var desktopDir = Path.GetDirectoryName(desktopPath);
         File.WriteAllText(desktopPath, desktopContent);
-        Process.Start("desktop-file-install", $"\"--dir={desktopDir}\" --rebuild-mime-info-cache \"{desktopPath}\"")
-            .WaitForExit();
+        Process.Start("desktop-file-install", $"\"--dir={desktopDir}\" --rebuild-mime-info-cache \"{desktopPath}\"").WaitForExit(2000);
+        File.SetUnixFileMode(desktopPath, UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute | File.GetUnixFileMode(desktopPath));
     }
 }
 
@@ -146,12 +152,14 @@ void HandleUninstall()
     if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     {
         Registry.CurrentUser.DeleteSubKeyTree(@"SOFTWARE\Classes\shizou", false);
+        File.Delete(GetVbScriptLocation());
     }
     else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
     {
         var desktopPath = GetDesktopEntryPath();
         var desktopDir = Path.GetDirectoryName(desktopPath);
         File.Delete(desktopPath);
+        File.Delete(GetShellScriptPath());
         Process.Start("update-desktop-database", new[] { desktopDir! }).WaitForExit(2000);
     }
 }
@@ -168,6 +176,21 @@ string GetDesktopEntryPath()
     var desktopDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local/share/applications");
     Directory.CreateDirectory(desktopDir);
     var desktopName = "shizou.desktop";
-    var desktopPath = Path.Combine(desktopDir, desktopName);
-    return desktopPath;
+    return Path.Combine(desktopDir, desktopName);
+}
+
+string GetShellScriptPath()
+{
+    var shellScriptDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local/bin");
+    Directory.CreateDirectory(shellScriptDir);
+    var scriptName = "shizou-ext-player-start.sh";
+    return Path.Combine(shellScriptDir, scriptName);
+}
+
+string GetVbScriptLocation()
+{
+    var vbScriptDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Shizou");
+    Directory.CreateDirectory(vbScriptDir);
+    var vbScriptName = "shizou-ext-player-start.vbs";
+    return Path.Combine(vbScriptDir, vbScriptName);
 }
