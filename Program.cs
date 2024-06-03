@@ -93,36 +93,21 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
         vbScriptContent += playerName switch
         {
             "mpv" =>
-                $"CreateObject(\"Wscript.Shell\").Run \"\"\"{extPlayerCommand}\"\" --no-terminal --no-ytdl {extraPlayerArgs} -- \" & url, 0, False",
-            "vlc" => $"CreateObject(\"Wscript.Shell\").Run \"\"\"{extPlayerCommand}\"\" {extraPlayerArgs} \" & url, 0, False",
+                $"CreateObject(\"Wscript.Shell\").Run chr(34) & {extPlayerCommand} & chr(34) & \" --no-terminal --no-ytdl {extraPlayerArgs} -- \" & url, 0, False",
+            "vlc" => $"CreateObject(\"Wscript.Shell\").Run chr(34) & {extPlayerCommand} & chr(34) & \" {extraPlayerArgs} \" & url, 0, False",
             _ => throw new ArgumentOutOfRangeException()
         };
         File.WriteAllText(vbScriptLocation, vbScriptContent);
     }
     else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
     {
-        void ValidateChars(string str)
-        {
-            var invalidChars = new HashSet<char> { '`', '$', '\\', ' ', '\t', '\n', '\"', '\'', '<', '>', '~', '|', '&', ';', '*', '?', '#', '(', ')' };
-            string StrRepr(char s) => s switch { '\t' => "<tab>", ' ' => "<space>", '\n' => "<newline>", _ => s.ToString() };
-            if (str.Intersect(invalidChars).FirstOrDefault() is var invalidChar and not '\0')
-                throw new ArgumentException($"String \"{str}\" contains an invalid desktop entry character: {StrRepr(invalidChar)}");
-        }
-
-        ValidateChars(extPlayerCommand);
-        extraPlayerArgs = extraPlayerArgs?
-            .Replace("\\", "\\\\")
-            .Replace("$", "\\$")
-            .Replace("`", "\\`")
-            .Replace("\\", "\\\\");
-
         var scriptContent = "#!/bin/bash\n" +
-                            "function urldecode() { : \"${*//+/ }\"; echo -e \"${_//%/\\\\x}\"; }\n" +
+                            "function urldecode() { echo -e \"${1//%/\\\\x}\"; }\n" +
                             "url=\"$(urldecode \"${1:7}\")\"\n" +
                             playerName switch
                             {
-                                "mpv" => $"{extPlayerCommand} --no-terminal --no-ytdl {extraPlayerArgs} -- \"${{url}}\"\n",
-                                "vlc" => $"{extPlayerCommand} {extraPlayerArgs} \"${{url}}\"\n",
+                                "mpv" => $"{extPlayerCommand.Replace(" ", "\\ ")} --no-terminal --no-ytdl {extraPlayerArgs} -- \"${{url}}\"\n",
+                                "vlc" => $"{extPlayerCommand.Replace(" ", "\\ ")} {extraPlayerArgs} \"${{url}}\"\n",
                                 _ => throw new ArgumentOutOfRangeException()
                             };
         var scriptPath = GetShellScriptPath();
