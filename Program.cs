@@ -88,15 +88,15 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
             "   MsgBox \"Error: protocol needs to be shizou:, started with \" & WScript.Arguments(0)\n" +
             "   WScript.Quit 1\n" +
             "End If\n" +
-            "Dim url\n" +
-            "url = chr(34) & Unescape(Mid(WScript.Arguments(0), 8)) & chr(34)\n";
-        vbScriptContent += playerName switch
-        {
-            "mpv" =>
-                $"CreateObject(\"Wscript.Shell\").Run chr(34) & \"{extPlayerCommand}\" & chr(34) & \" --no-terminal --no-ytdl {extraPlayerArgs} -- \" & url, 0, False",
-            "vlc" => $"CreateObject(\"Wscript.Shell\").Run chr(34) & \"{extPlayerCommand}\" & chr(34) & \" {extraPlayerArgs} \" & url, 0, False",
-            _ => throw new ArgumentOutOfRangeException()
-        };
+            "Dim url, player_path\n" +
+            "url = chr(34) & Unescape(Mid(WScript.Arguments(0), 8)) & chr(34)\n" +
+            $"player_path = chr(34) & \"{extPlayerCommand}\" & chr(34)\n" +
+            "CreateObject(\"Wscript.Shell\").Run player_path & " + playerName switch
+            {
+                "mpv" => $"\" --no-terminal --no-ytdl {extraPlayerArgs} -- \" & url",
+                "vlc" => $"\" {extraPlayerArgs} \" & url",
+                _ => throw new ArgumentOutOfRangeException()
+            } + ", 0, False\n";
         File.WriteAllText(vbScriptLocation, vbScriptContent);
     }
     else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
