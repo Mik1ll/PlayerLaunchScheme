@@ -88,22 +88,8 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
             "   MsgBox \"Error: protocol needs to be shizou:, started with \" & WScript.Arguments(0)\n" +
             "   WScript.Quit 1\n" +
             "End If\n" +
-            "Function DecodePercentEncodedString(encodedString)\n" +
-            "    Dim i, hexValue, decodedString\n" +
-            "    decodedString = \"\"\n" +
-            "    For i = 1 To Len(encodedString)\n" +
-            "        If Mid(encodedString, i, 1) = \"%\" Then\n" +
-            "            hexValue = Mid(encodedString, i + 1, 2)\n" +
-            "            decodedString = decodedString & ChrW(\"&H\" & hexValue)\n" +
-            "            i = i + 2\n" +
-            "        Else\n" +
-            "            decodedString = decodedString & Mid(encodedString, i, 1)\n" +
-            "        End If\n" +
-            "    Next\n" +
-            "    DecodePercentEncodedString = decodedString\n" +
-            "End Function\n" +
             "Dim url\n" +
-            "url = chr(34) & DecodePercentEncodedString(Mid(WScript.Arguments(0), 8)) & chr(34)\n";
+            "url = chr(34) & Unescape(Mid(WScript.Arguments(0), 8)) & chr(34)\n";
         vbScriptContent += playerName switch
         {
             "mpv" =>
