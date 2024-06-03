@@ -93,8 +93,8 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
         vbScriptContent += playerName switch
         {
             "mpv" =>
-                $"CreateObject(\"Wscript.Shell\").Run chr(34) & {extPlayerCommand} & chr(34) & \" --no-terminal --no-ytdl {extraPlayerArgs} -- \" & url, 0, False",
-            "vlc" => $"CreateObject(\"Wscript.Shell\").Run chr(34) & {extPlayerCommand} & chr(34) & \" {extraPlayerArgs} \" & url, 0, False",
+                $"CreateObject(\"Wscript.Shell\").Run chr(34) & \"{extPlayerCommand}\" & chr(34) & \" --no-terminal --no-ytdl {extraPlayerArgs} -- \" & url, 0, False",
+            "vlc" => $"CreateObject(\"Wscript.Shell\").Run chr(34) & \"{extPlayerCommand}\" & chr(34) & \" {extraPlayerArgs} \" & url, 0, False",
             _ => throw new ArgumentOutOfRangeException()
         };
         File.WriteAllText(vbScriptLocation, vbScriptContent);
