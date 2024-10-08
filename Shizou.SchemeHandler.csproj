@@ -11,4 +11,30 @@
         <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
     </ItemGroup>
 
+    <Target Name="GetGitAssemblyVersion" BeforeTargets="GetAssemblyVersion">
+        <Exec Command="git describe --match=SchemeHandler/v[0-9]%2A.[0-9]%2A.[0-9]%2A --tags --abbrev=7 --always --long --dirty" ConsoleToMsBuild="true">
+            <Output TaskParameter="ConsoleOutput" PropertyName="GitInfo"/>
+        </Exec>
+
+        <PropertyGroup>
+            <Version>$([System.Text.RegularExpressions.Regex]::Match("$(GitInfo)", "\d+\.\d+\.\d+"))</Version>
+            <InformationalVersion>$(GitInfo)</InformationalVersion>
+        </PropertyGroup>
+    </Target>
+
+    <Target Name="PackageForRelease" AfterTargets="Publish">
+        <PropertyGroup>
+            <ZipDir>$(PublishDir)ZipDir/</ZipDir>
+        </PropertyGroup>
+
+        <ItemGroup>
+            <ZipOut Include="$(PublishDir)/**/*.*"/>
+        </ItemGroup>
+
+        <Copy SourceFiles="@(ZipOut)" DestinationFolder="$(ZipDir)$(ProjectName)/%(RecursiveDir)"/>
+        <ZipDirectory SourceDirectory="$(ZipDir)"
+                      DestinationFile='$(OutDir)$(ProjectName)_$([MSBuild]::ValueOrDefault("$(RuntimeIdentifier)","Portable"))_$([System.Text.RegularExpressions.Regex]::Match("$(GitInfo)", "[^/]+%24")).zip'
+                      Overwrite="true"/>
+        <RemoveDir Directories="$(ZipDir)"/>
+    </Target>
 </Project>
