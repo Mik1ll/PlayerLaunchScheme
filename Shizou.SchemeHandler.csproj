@@ -25,6 +25,7 @@
     <Target Name="PackageForRelease" AfterTargets="Publish">
         <PropertyGroup>
             <ZipDir>$(PublishDir)ZipDir/</ZipDir>
+            <ZipDestination>$(OutDir)$(ProjectName)_$([MSBuild]::ValueOrDefault("$(RuntimeIdentifier)","Portable"))_$([System.Text.RegularExpressions.Regex]::Match("$(GitInfo)", "[^/]+%24")).zip</ZipDestination>
         </PropertyGroup>
 
         <ItemGroup>
@@ -32,9 +33,7 @@
         </ItemGroup>
 
         <Copy SourceFiles="@(ZipOut)" DestinationFolder="$(ZipDir)$(ProjectName)/%(RecursiveDir)"/>
-        <ZipDirectory SourceDirectory="$(ZipDir)"
-                      DestinationFile='$(OutDir)$(ProjectName)_$([MSBuild]::ValueOrDefault("$(RuntimeIdentifier)","Portable"))_$([System.Text.RegularExpressions.Regex]::Match("$(GitInfo)", "[^/]+%24")).zip'
-                      Overwrite="true"/>
+        <ZipDirectory SourceDirectory="$(ZipDir)" DestinationFile="$(ZipDestination)" Overwrite="true"/>
         <RemoveDir Directories="$(ZipDir)"/>
     </Target>
 </Project>
