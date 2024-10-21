@@ -12,7 +12,7 @@
     </ItemGroup>
 
     <Target Name="GetGitAssemblyVersion" BeforeTargets="GetAssemblyVersion">
-        <Exec Command="git describe --match=SchemeHandler/v[0-9]%2A.[0-9]%2A.[0-9]%2A --tags --abbrev=7 --always --long --dirty" ConsoleToMsBuild="true">
+        <Exec Command="git describe --match=v[0-9]%2A.[0-9]%2A.[0-9]%2A --tags --abbrev=7 --always --long --dirty" ConsoleToMsBuild="true">
             <Output TaskParameter="ConsoleOutput" PropertyName="GitInfo"/>
         </Exec>
 
@@ -25,7 +25,7 @@
     <Target Name="PackageForRelease" AfterTargets="Publish">
         <PropertyGroup>
             <ZipDir>$(PublishDir)ZipDir/</ZipDir>
-            <ZipDestination>$(OutDir)$(ProjectName)_$([MSBuild]::ValueOrDefault("$(RuntimeIdentifier)","Portable"))_$([System.Text.RegularExpressions.Regex]::Match("$(GitInfo)", "[^/]+%24")).zip</ZipDestination>
+            <ZipDestination>$(OutDir)$(ProjectName)_$([MSBuild]::ValueOrDefault("$(RuntimeIdentifier)","Portable"))_$(GitInfo).zip</ZipDestination>
         </PropertyGroup>
 
         <ItemGroup>
