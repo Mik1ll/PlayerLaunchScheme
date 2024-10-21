@@ -3,12 +3,39 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
 
+var supportedPlayers = new[] { "mpv", "vlc" };
 var rootCommand = new RootCommand
 {
     TreatUnmatchedTokensAsErrors = true
 };
 var installCommand = new Command("install", "Install the scheme handler");
-var extPlayerArg = new Argument<string>("player-command", "Name of the external player if it is in PATH or the path to the player");
+var extPlayerArg = new Argument<string>("player-command",
+    $"Name of the external player if it is in PATH or the full path to the player. Supported players: {string.Join(", ", supportedPlayers)}");
+extPlayerArg.AddValidator(result =>
+{
+    var value = result.GetValueForArgument(extPlayerArg);
+    if (string.IsNullOrWhiteSpace(value))
+        result.ErrorMessage = "External player path/name empty";
+    else if (!supportedPlayers.Any(p => Path.GetFileName(value).StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+        result.ErrorMessage = $"Player not supported. Supported players: {string.Join(", ", supportedPlayers)}";
+    else
+    {
+        List<string> pathext = [string.Empty, ..Environment.GetEnvironmentVariable("PATHEXT")?.Split(Path.PathSeparator) ?? []];
+        if (Path.IsPathFullyQualified(value))
+        {
+            if (!pathext.Select(pext => value + pext).Any(File.Exists))
+                result.ErrorMessage = $"Player not found at \"{value}\"";
+        }
+        else if (value.IndexOfAny(Path.GetInvalidFileNameChars()) < 0)
+        {
+            var path = Environment.GetEnvironmentVariable("PATH")?.Split(Path.PathSeparator) ?? [];
+            if (!path.SelectMany(p => pathext.Select(pext => Path.Combine(p, value + pext))).Any(File.Exists))
+                result.ErrorMessage = "Player not found in path";
+        }
+        else
+            result.ErrorMessage = "Player needs to be a full path or file name in PATH";
+    }
+});
 var extPlayerExtraArgsOpt = new Option<string?>("--extra-args", "Extra arguments to send to the player");
 installCommand.AddArgument(extPlayerArg);
 installCommand.AddOption(extPlayerExtraArgsOpt);
@@ -22,55 +49,7 @@ return rootCommand.Invoke(args);
 
 void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
 {
-    extPlayerCommand = UnquoteString(extPlayerCommand);
-    var supportedPlayers = new[] { "mpv", "vlc" };
-    if (string.IsNullOrWhiteSpace(extPlayerCommand))
-    {
-        Console.WriteLine("External player path/name empty");
-        return;
-    }
-
-    var found = false;
-    if (Path.IsPathFullyQualified(extPlayerCommand))
-    {
-        if (File.Exists(extPlayerCommand))
-            found = true;
-    }
-    else if (extPlayerCommand.IndexOfAny(Path.GetInvalidFileNameChars()) < 0)
-    {
-        var path = Environment.GetEnvironmentVariable("PATH")?.Split(Path.PathSeparator) ?? [];
-        var hasExt = Path.HasExtension(extPlayerCommand) || !RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-        var ext = hasExt ? string.Empty : ".exe";
-        foreach (var dir in path)
-        {
-            var testpath = Path.Combine(dir, extPlayerCommand + ext);
-            if (File.Exists(testpath))
-            {
-                found = true;
-                extPlayerCommand = testpath;
-                break;
-            }
-        }
-    }
-    else
-    {
-        Console.WriteLine("File path must be fully qualified or a file name");
-        return;
-    }
-
-    if (!found)
-    {
-        Console.WriteLine("Executable not found.");
-        return;
-    }
-
-    var playerName = Path.GetFileNameWithoutExtension(extPlayerCommand).ToLowerInvariant();
-    if (!supportedPlayers.Contains(playerName))
-    {
-        Console.WriteLine("Player not supported");
-        return;
-    }
-
+    var playerName = supportedPlayers.First(p => Path.GetFileName(extPlayerCommand).StartsWith(p, StringComparison.OrdinalIgnoreCase));
     if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     {
         var vbScriptLocation = GetVbScriptLocation();
@@ -145,7 +124,7 @@ void HandleUninstall()
         var desktopDir = Path.GetDirectoryName(desktopPath);
         File.Delete(desktopPath);
         File.Delete(GetShellScriptPath());
-        Process.Start("update-desktop-database", new[] { desktopDir! }).WaitForExit(2000);
+        Process.Start("update-desktop-database", [desktopDir!]).WaitForExit(2000);
     }
 }
 
