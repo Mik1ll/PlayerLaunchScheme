@@ -1,5 +1,6 @@
 ﻿using System.CommandLine;
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
 
@@ -8,9 +9,9 @@ var rootCommand = new RootCommand
 {
     TreatUnmatchedTokensAsErrors = true
 };
-var installCommand = new Command("install", "Install the scheme handler");
+var installCommand = new Command("install", "Install the scheme handler.");
 var extPlayerArg = new Argument<string>("player-command",
-    $"Name of the external player if it is in PATH or the full path to the player. Supported players: {string.Join(", ", supportedPlayers)}");
+    $"Name of the external player if it is in PATH or the full path to the player. Supported players: {string.Join(", ", supportedPlayers)}.");
 extPlayerArg.AddValidator(result =>
 {
     var value = result.GetValueForArgument(extPlayerArg);
@@ -36,39 +37,43 @@ extPlayerArg.AddValidator(result =>
             result.ErrorMessage = "Player needs to be a full path or file name in PATH";
     }
 });
-var extPlayerExtraArgsOpt = new Option<string?>("--extra-args", "Extra arguments to send to the player");
+var schemeOpt = new Option<string>("--scheme", description: "The name to use for the url scheme.",
+    parseArgument: result => result.Tokens.Single().Value.ToLowerInvariant()) { IsRequired = true };
+var extPlayerExtraArgsOpt = new Option<string?>("--extra-args", "Extra arguments to send to the player.");
 installCommand.AddArgument(extPlayerArg);
 installCommand.AddOption(extPlayerExtraArgsOpt);
-installCommand.SetHandler(HandleInstall, extPlayerArg, extPlayerExtraArgsOpt);
+installCommand.AddOption(schemeOpt);
+installCommand.SetHandler(HandleInstall, extPlayerArg, extPlayerExtraArgsOpt, schemeOpt);
 rootCommand.AddCommand(installCommand);
-var uninstallCommand = new Command("uninstall", "Uninstall the scheme handler");
-uninstallCommand.SetHandler(HandleUninstall);
+var uninstallCommand = new Command("uninstall", "Uninstall the scheme handler.");
+uninstallCommand.AddOption(schemeOpt);
+uninstallCommand.SetHandler(HandleUninstall, schemeOpt);
 rootCommand.AddCommand(uninstallCommand);
 
 return rootCommand.Invoke(args);
 
-void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
+void HandleInstall(string extPlayerCommand, string? extraPlayerArgs, string scheme)
 {
     var playerName = supportedPlayers.First(p => Path.GetFileName(extPlayerCommand).StartsWith(p, StringComparison.OrdinalIgnoreCase));
     if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     {
-        var vbScriptLocation = GetVbScriptLocation();
+        var vbScriptLocation = GetVbScriptLocation(scheme);
         if (extraPlayerArgs is not null)
             extraPlayerArgs = UnquoteString(extraPlayerArgs).Replace("\"", "\"\"");
-        using var key = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\Classes\shizou");
-        key.SetValue("", "URL:Shizou Protocol");
+        using var key = Registry.CurrentUser.CreateSubKey($@"SOFTWARE\Classes\{scheme}");
+        key.SetValue("", $"URL:{CultureInfo.InvariantCulture.TextInfo.ToTitleCase(scheme)} Protocol");
         key.SetValue("URL Protocol", "");
         using var icon = key.CreateSubKey("DefaultIcon");
         icon.SetValue("", $"\"{extPlayerCommand}\",1");
         using var command = key.CreateSubKey(@"shell\open\command");
         command.SetValue("", $"wscript.exe \"{vbScriptLocation}\" \"%1\"");
         var vbScriptContent =
-            "If InStr(1, WScript.Arguments(0), \"shizou:\") <> 1 Then\n" +
-            "   MsgBox \"Error: protocol needs to be shizou:, started with \" & WScript.Arguments(0)\n" +
+            $"If InStr(1, WScript.Arguments(0), \"{scheme}:\") <> 1 Then\n" +
+            $"   MsgBox \"Error: protocol needs to be {scheme}:, started with \" & WScript.Arguments(0)\n" +
             "   WScript.Quit 1\n" +
             "End If\n" +
             "Dim url, player_path\n" +
-            "url = chr(34) & Unescape(Mid(WScript.Arguments(0), 8)) & chr(34)\n" +
+            $"url = chr(34) & Unescape(Mid(WScript.Arguments(0), {scheme.Length + 2})) & chr(34)\n" +
             $"player_path = chr(34) & \"{extPlayerCommand}\" & chr(34)\n" +
             "CreateObject(\"Wscript.Shell\").Run player_path & " + playerName switch
             {
@@ -89,7 +94,7 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
                                 "vlc" => $"{extPlayerCommand.Replace(" ", "\\ ")} {extraPlayerArgs} \"${{url}}\"\n",
                                 _ => throw new ArgumentOutOfRangeException()
                             };
-        var scriptPath = GetShellScriptPath();
+        var scriptPath = GetShellScriptPath(scheme);
         File.WriteAllText(scriptPath, scriptContent);
         File.SetUnixFileMode(scriptPath, UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute | File.GetUnixFileMode(scriptPath));
 
@@ -97,13 +102,13 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
         var desktopContent =
             "[Desktop Entry]\n" +
             "Type=Application\n" +
-            "Name=Shizou External Player\n" +
+            $"Name={CultureInfo.InvariantCulture.TextInfo.ToTitleCase(scheme)} External Player\n" +
             $"TryExec={scriptPath.Replace(" ", "\\ ")}\n" +
             $"Exec={scriptPath.Replace(" ", "\\ ")} %u\n" +
             "Terminal=false\n" +
             "StartupNotify=false\n" +
-            "MimeType=x-scheme-handler/shizou;\n";
-        var desktopPath = GetDesktopEntryPath();
+            $"MimeType=x-scheme-handler/{scheme};\n";
+        var desktopPath = GetDesktopEntryPath(scheme);
         var desktopDir = Path.GetDirectoryName(desktopPath);
         File.WriteAllText(desktopPath, desktopContent);
         Process.Start("desktop-file-install", $"\"--dir={desktopDir}\" --rebuild-mime-info-cache \"{desktopPath}\"").WaitForExit(2000);
@@ -111,19 +116,19 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs)
     }
 }
 
-void HandleUninstall()
+void HandleUninstall(string scheme)
 {
     if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
     {
-        Registry.CurrentUser.DeleteSubKeyTree(@"SOFTWARE\Classes\shizou", false);
-        File.Delete(GetVbScriptLocation());
+        Registry.CurrentUser.DeleteSubKeyTree($@"SOFTWARE\Classes\{scheme}", false);
+        File.Delete(GetVbScriptLocation(scheme));
     }
     else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
     {
-        var desktopPath = GetDesktopEntryPath();
+        var desktopPath = GetDesktopEntryPath(scheme);
         var desktopDir = Path.GetDirectoryName(desktopPath);
         File.Delete(desktopPath);
-        File.Delete(GetShellScriptPath());
+        File.Delete(GetShellScriptPath(scheme));
         Process.Start("update-desktop-database", [desktopDir!]).WaitForExit(2000);
     }
 }
@@ -135,26 +140,26 @@ static string UnquoteString(string str)
     return str;
 }
 
-static string GetDesktopEntryPath()
+static string GetDesktopEntryPath(string scheme)
 {
     var desktopDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local/share/applications");
     Directory.CreateDirectory(desktopDir);
-    var desktopName = "shizou.desktop";
+    var desktopName = $"{scheme}.desktop";
     return Path.Combine(desktopDir, desktopName);
 }
 
-static string GetShellScriptPath()
+static string GetShellScriptPath(string scheme)
 {
-    var shellScriptDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local/bin");
+    var shellScriptDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local/share/PlayerLaunchScheme");
     Directory.CreateDirectory(shellScriptDir);
-    var scriptName = "shizou-ext-player-start.sh";
+    var scriptName = $"{scheme}-ext-player-start.sh";
     return Path.Combine(shellScriptDir, scriptName);
 }
 
-static string GetVbScriptLocation()
+static string GetVbScriptLocation(string scheme)
 {
-    var vbScriptDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Shizou");
+    var vbScriptDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "PlayerLaunchScheme");
     Directory.CreateDirectory(vbScriptDir);
-    var vbScriptName = "shizou-ext-player-start.vbs";
+    var vbScriptName = $"{scheme}-ext-player-start.vbs";
     return Path.Combine(vbScriptDir, vbScriptName);
 }
