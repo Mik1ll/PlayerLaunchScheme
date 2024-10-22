@@ -10,7 +10,7 @@ var rootCommand = new RootCommand
     TreatUnmatchedTokensAsErrors = true
 };
 var installCommand = new Command("install", "Install the scheme handler.");
-var extPlayerArg = new Argument<string>("player-command",
+var extPlayerArg = new Argument<string>("player",
     $"Name of the external player if it is in PATH or the full path to the player. Supported players: {string.Join(", ", supportedPlayers)}.");
 extPlayerArg.AddValidator(result =>
 {
