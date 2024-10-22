@@ -11,9 +11,15 @@
         <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
     </ItemGroup>
 
+    <ItemGroup>
+        <None Update="Scripts/**/*">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+    </ItemGroup>
+
     <Target Name="GetGitAssemblyVersion" BeforeTargets="GetAssemblyVersion">
         <Exec Command="git describe --match=v[0-9]%2A.[0-9]%2A.[0-9]%2A --tags --abbrev=7 --always --long --dirty" ConsoleToMsBuild="true">
-            <Output TaskParameter="ConsoleOutput" PropertyName="GitInfo"/>
+            <Output TaskParameter="ConsoleOutput" PropertyName="GitInfo" />
         </Exec>
 
         <PropertyGroup>
@@ -29,11 +35,15 @@
         </PropertyGroup>
 
         <ItemGroup>
-            <ZipOut Include="$(PublishDir)/**/*.*"/>
+            <ZipOut Include="$(PublishDir)/**/*" Exclude="$(PublishDir)/Scripts/**/*" />
+            <WindowsScripts Include="$(PublishDir)Scripts/Windows/*" />
+            <LinuxScripts Include="$(PublishDir)Scripts/Linux/*" />
         </ItemGroup>
 
-        <Copy SourceFiles="@(ZipOut)" DestinationFolder="$(ZipDir)$(ProjectName)/%(RecursiveDir)"/>
-        <ZipDirectory SourceDirectory="$(ZipDir)" DestinationFile="$(ZipDestination)" Overwrite="true"/>
-        <RemoveDir Directories="$(ZipDir)"/>
+        <Copy SourceFiles="@(ZipOut)" DestinationFolder="$(ZipDir)$(ProjectName)/%(RecursiveDir)" />
+        <Copy Condition="$(RuntimeIdentifier.StartsWith('linux'))" SourceFiles="@(LinuxScripts)" DestinationFolder="$(ZipDir)$(ProjectName)/" />
+        <Copy Condition="$(RuntimeIdentifier.StartsWith('win'))" SourceFiles="@(WindowsScripts)" DestinationFolder="$(ZipDir)$(ProjectName)/" />
+        <ZipDirectory SourceDirectory="$(ZipDir)" DestinationFile="$(ZipDestination)" Overwrite="true" />
+        <RemoveDir Directories="$(ZipDir)" />
     </Target>
 </Project>
