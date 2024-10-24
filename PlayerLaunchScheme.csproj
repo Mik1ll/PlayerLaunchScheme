@@ -9,6 +9,7 @@
         <DisableImplicitNuGetFallbackFolder Condition="'$(CI)' == 'true'">true</DisableImplicitNuGetFallbackFolder>
         <Deterministic>true</Deterministic>
         <DeterministicSourcePaths>true</DeterministicSourcePaths>
+        <RuntimeIdentifiers>win-x64;linux-x64;linux-arm64</RuntimeIdentifiers>
     </PropertyGroup>
 
     <ItemGroup>

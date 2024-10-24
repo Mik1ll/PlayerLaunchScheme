@@ -2,12 +2,21 @@
   "version": 1,
   "dependencies": {
     "net8.0": {
+      "Microsoft.NET.ILLink.Tasks": {
+        "type": "Direct",
+        "requested": "[8.0.10, )",
+        "resolved": "8.0.10",
+        "contentHash": "xT8jYjlroY7SLbGtoV9vUTVW/TPgodL4Egc31a444Xe0TMytLZ3UlKQ0kxMZsy/CrWsFB6wtKnSG1SsXcWreew=="
+      },
       "System.CommandLine": {
         "type": "Direct",
         "requested": "[2.0.0-beta4.22272.1, )",
         "resolved": "2.0.0-beta4.22272.1",
         "contentHash": "1uqED/q2H0kKoLJ4+hI2iPSBSEdTuhfCYADeJrAqERmiGQ2NNacYKRNEQ+gFbU4glgVyK8rxI+ZOe1onEtr/Pg=="
       }
-    }
+    },
+    "net8.0/linux-arm64": {},
+    "net8.0/linux-x64": {},
+    "net8.0/win-x64": {}
   }
 }
