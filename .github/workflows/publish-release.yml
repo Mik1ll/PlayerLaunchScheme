@@ -20,7 +20,7 @@ jobs:
       - name: Publish
         run: |
           for rid in "win-x64" "linux-x64" "linux-arm64"; do
-            dotnet publish ./PlayerLaunchScheme.csproj -c Release --sc -p:PublishReadyToRun=true -p:PublishSingleFile=true -p:PublishTrimmed=true -o "./publish/$rid" -r "$rid"
+            dotnet publish ./PlayerLaunchScheme.csproj -c Release --sc true -r "$rid" -o "./publish/$rid"
           done
       - name: Release
         env:
