@@ -1,2 +1,2 @@
 #!/usr/bin/env sh
-./PlayerLaunchScheme install --scheme shoko mpv
+./PlayerLaunchScheme install --scheme shoko vlc
