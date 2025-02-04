@@ -87,7 +87,7 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs, string sche
     {
         var scriptContent = "#!/bin/bash\n" +
                             "function urldecode() { echo -e \"${1//%/\\\\x}\"; }\n" +
-                            "url=\"$(urldecode \"${1:7}\")\"\n" +
+                            $$"""url=\"$(urldecode \"${1:{{scheme.Length}}\")\"\n""" +
                             playerName switch
                             {
                                 "mpv" => $"{extPlayerCommand.Replace(" ", "\\ ")} --no-terminal --no-ytdl {extraPlayerArgs} -- \"${{url}}\"\n",
