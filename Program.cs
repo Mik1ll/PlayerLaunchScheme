@@ -27,7 +27,7 @@ installCommand.SetHandler(HandleInstall, extPlayerArg, extPlayerExtraArgsOpt, sc
 
 uninstallCommand.SetHandler(HandleUninstall, schemeArg);
 
-extPlayerArg.AddValidator(result =>
+installCommand.AddValidator(result =>
 {
     var value = result.GetValueForArgument(extPlayerArg);
     if (string.IsNullOrWhiteSpace(value))
