@@ -5,13 +5,28 @@ using System.Runtime.InteropServices;
 using Microsoft.Win32;
 
 var supportedPlayers = new[] { "mpv", "vlc" };
-var rootCommand = new RootCommand
-{
-    TreatUnmatchedTokensAsErrors = true
-};
-var installCommand = new Command("install", "Install the scheme handler.");
+var schemeArg = new Argument<string>("scheme", description: "The name to use for the url scheme.",
+    parse: result => result.Tokens.Single().Value.ToLowerInvariant());
 var extPlayerArg = new Argument<string>("player",
     $"Name of the external player if it is in PATH or the full path to the player. Supported players: {string.Join(", ", supportedPlayers)}.");
+var extPlayerExtraArgsOpt = new Option<string?>("--extra-args", "Extra arguments to send to the player.");
+
+var rootCommand = new RootCommand { TreatUnmatchedTokensAsErrors = true };
+rootCommand.AddArgument(schemeArg);
+
+var installCommand = new Command("install", "Install the scheme handler.");
+installCommand.AddArgument(extPlayerArg);
+installCommand.AddOption(extPlayerExtraArgsOpt);
+rootCommand.AddCommand(installCommand);
+
+var uninstallCommand = new Command("uninstall", "Uninstall the scheme handler.");
+rootCommand.AddCommand(uninstallCommand);
+
+
+installCommand.SetHandler(HandleInstall, extPlayerArg, extPlayerExtraArgsOpt, schemeArg);
+
+uninstallCommand.SetHandler(HandleUninstall, schemeArg);
+
 extPlayerArg.AddValidator(result =>
 {
     var value = result.GetValueForArgument(extPlayerArg);
@@ -37,18 +52,6 @@ extPlayerArg.AddValidator(result =>
             result.ErrorMessage = "Player needs to be a full path or file name in PATH";
     }
 });
-var schemeOpt = new Option<string>("--scheme", description: "The name to use for the url scheme.",
-    parseArgument: result => result.Tokens.Single().Value.ToLowerInvariant()) { IsRequired = true };
-var extPlayerExtraArgsOpt = new Option<string?>("--extra-args", "Extra arguments to send to the player.");
-installCommand.AddArgument(extPlayerArg);
-installCommand.AddOption(extPlayerExtraArgsOpt);
-installCommand.AddOption(schemeOpt);
-installCommand.SetHandler(HandleInstall, extPlayerArg, extPlayerExtraArgsOpt, schemeOpt);
-rootCommand.AddCommand(installCommand);
-var uninstallCommand = new Command("uninstall", "Uninstall the scheme handler.");
-uninstallCommand.AddOption(schemeOpt);
-uninstallCommand.SetHandler(HandleUninstall, schemeOpt);
-rootCommand.AddCommand(uninstallCommand);
 
 return rootCommand.Invoke(args);
 
