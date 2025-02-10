@@ -83,7 +83,7 @@ void HandleInstall(string extPlayerCommand, string? extraPlayerArgs, string sche
                 "mpv" => $"\" --no-terminal --no-ytdl {extraPlayerArgs} -- \" & url",
                 "vlc" => $"\" {extraPlayerArgs} \" & url",
                 _ => throw new ArgumentOutOfRangeException()
-            } + ", 0, False\n";
+            } + $", {playerName switch { "mpv" => "0", "vlc" => "1", _ => throw new ArgumentOutOfRangeException() }}, False\n";
         File.WriteAllText(vbScriptLocation, vbScriptContent);
     }
     else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
